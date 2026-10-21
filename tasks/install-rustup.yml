@@ -1,12 +1,42 @@
 ---
+# A pinned rustup-init, verified before it runs, instead of `curl https://sh.rustup.rs | sh`:
+# that script fetches whatever rustup-init the site serves at that moment and runs it unchecked.
 
-- name: Install RustUp
-  ansible.builtin.shell: |
-    set -o pipefail
-    curl https://sh.rustup.rs -sSf | sh -s -- -y
-  args:
-    creates: "{{ rustup_user_home }}/{{ rustup_cargo_home_suffix }}/bin/rustup"
-    executable: /bin/bash
-  environment:
-    RUSTUP_HOME: "{{ rustup_user_home }}/{{ rustup_home_suffix }}"
-    CARGO_HOME: "{{ rustup_user_home }}/{{ rustup_cargo_home_suffix }}"
+- name: Work out the rustup target for this host
+  ansible.builtin.set_fact:
+    rustup_target: >-
+      {{ {'x86_64': 'x86_64', 'amd64': 'x86_64', 'aarch64': 'aarch64', 'arm64': 'aarch64'}[ansible_architecture]
+         | default('unsupported') }}-{{ 'apple-darwin' if ansible_system == 'Darwin' else 'unknown-linux-gnu' }}
+
+- name: Check that a checksum is pinned for this target
+  ansible.builtin.assert:
+    that: rustup_target in rustup_init_checksums
+    fail_msg: "No rustup-init checksum for {{ rustup_target }} ({{ ansible_system }} {{ ansible_architecture }}); add it to rustup_init_checksums"
+
+- name: Create a private directory for rustup-init
+  ansible.builtin.tempfile:
+    state: directory
+    suffix: rustup-init
+  register: rustup_init_dir
+
+- name: Download, verify and run rustup-init
+  block:
+    - name: Download rustup-init and verify its checksum
+      ansible.builtin.get_url:
+        url: "https://static.rust-lang.org/rustup/archive/{{ rustup_version }}/{{ rustup_target }}/rustup-init"
+        dest: "{{ rustup_init_dir.path }}/rustup-init"
+        checksum: "sha256:{{ rustup_init_checksums[rustup_target] }}"
+        mode: "0700"
+
+    - name: Install RustUp
+      ansible.builtin.command:
+        cmd: "{{ rustup_init_dir.path }}/rustup-init -y"
+        creates: "{{ rustup_user_home }}/{{ rustup_cargo_home_suffix }}/bin/rustup"
+      environment:
+        RUSTUP_HOME: "{{ rustup_user_home }}/{{ rustup_home_suffix }}"
+        CARGO_HOME: "{{ rustup_user_home }}/{{ rustup_cargo_home_suffix }}"
+  always:
+    - name: Remove rustup-init
+      ansible.builtin.file:
+        path: "{{ rustup_init_dir.path }}"
+        state: absent

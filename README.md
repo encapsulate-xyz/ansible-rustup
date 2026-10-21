@@ -3,7 +3,7 @@
 [![Build Status][action-badge]][action-link]
 [![MIT licensed](https://img.shields.io/badge/license-MIT-blue.svg?style=for-the-badge)](https://raw.githubusercontent.com/hurricanehrndz/ansible-rustup/master/LICENSE)
 
-Install rust and user defined cargo crates via rustup using `https://sh.rustup.rs`.
+Install rust and user defined cargo crates via rustup. `rustup-init` is downloaded by version from `static.rust-lang.org` and checked against the SHA-256 the Rust project publishes, never piped from `https://sh.rustup.rs`.
 
 ## Role Variables
 
@@ -14,6 +14,8 @@ Install rust and user defined cargo crates via rustup using `https://sh.rustup.r
 | rustup_cargo_home_suffix | .cargo             | string     | Install destination (~/ + suffix)                    |
 | rustup_cargo_crates      | [fd-find, ripgrep] | Array      | List of crates to install from cargo.                |
 | rustup_default_version   | stable             | string     | Toolchain name, such as 'nightly' or '1.8.0'         |
+| rustup_version           | 1.29.1             | string     | rustup-init release to download                      |
+| rustup_init_checksums    | (see defaults)     | dict       | SHA-256 of rustup-init per target, from the `.sha256` files next to each download |
 
 ## Example Playbook
 
